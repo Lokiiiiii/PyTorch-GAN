@@ -13,13 +13,52 @@ def to_rgb(image):
     return rgb_image
 
 
-class ImageDataset(Dataset):
-    def __init__(self, root, transforms_=None, unaligned=False, mode="train"):
+def discover_files(paths):
+    files = []
+    for p in paths:
+        files += glob.glob(p + "/*/*.jpg")
+        files += glob.glob(p + "/*/*/*.jpg")
+    files = list(set(files))
+    random.shuffle(files)
+    return files
+
+
+class ImageDataset:
+    TEST_PERCENTAGE = 0.1
+    TRAIN_PERCENTAGE = 1-TEST_PERCENTAGE
+
+    def __init__(self, rootA, rootB, transforms_=None, unaligned=False):
         self.transform = transforms.Compose(transforms_)
         self.unaligned = unaligned
 
-        self.files_A = sorted(glob.glob(os.path.join(root, "%s/A" % mode) + "/*.*"))
-        self.files_B = sorted(glob.glob(os.path.join(root, "%s/B" % mode) + "/*.*"))
+        self.files_A = discover_files(rootA)
+        self.files_B = discover_files(rootB)
+
+        self.index_A = TRAIN_PERCENTAGE*len(self.files_A)
+        self.index_B = TRAIN_PERCENTAGE*len(self.files_B)
+
+        self.train_A = self.files_A[:self.index_A]
+        self.train_B = self.files_B[:self.index_B]
+
+        self.test_A = self.files_A[self.index_A:]
+        self.test_B = self.files_B[self.index_B:]
+
+
+    def train(self):
+        return ImageDatasetSlice(self.train_A, self.train_B, self.transform, self.unaligned)
+
+
+    def test(self):
+        return ImageDatasetSlice(self.test_A, self.test_B, self.transform, self.unaligned)
+
+
+class ImageDatasetSlice(Dataset):
+    def __init__(self, files_A, files_B, transform, unaligned):
+        self.files_A = files_A
+        self.files_B = files_B
+        self.transform = transform
+        self.unaligned = unaligned
+
 
     def __getitem__(self, index):
         image_A = Image.open(self.files_A[index % len(self.files_A)])
@@ -38,6 +77,7 @@ class ImageDataset(Dataset):
         item_A = self.transform(image_A)
         item_B = self.transform(image_B)
         return {"A": item_A, "B": item_B}
+
 
     def __len__(self):
         return max(len(self.files_A), len(self.files_B))
