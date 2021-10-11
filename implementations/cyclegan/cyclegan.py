@@ -44,7 +44,7 @@ opt = parser.parse_args()
 print(opt)
 
 # Create sample and checkpoint directories
-os.makedirs(os.environ['SM_OUTPUT_INTERMEDIATE_DIR'], exist_ok=True)
+os.makedirs(os.environ['SM_OUTPUT_DIR'], exist_ok=True)
 os.makedirs("/saved_models", exist_ok=True)
 
 # Losses
@@ -150,7 +150,7 @@ def sample_images(batches_done):
     fake_B = make_grid(fake_B, nrow=5, normalize=True)
     # Arange images along y-axis
     image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
-    save_image(image_grid, f"{os.environ['SM_OUTPUT_INTERMEDIATE_DIR']}/{batches_done}.png", normalize=False)
+    save_image(image_grid, f"{os.environ['SM_OUTPUT_DIR']}/{batches_done}.png", normalize=False)
 
 
 # ----------
