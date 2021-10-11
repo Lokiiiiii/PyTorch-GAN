@@ -34,8 +34,8 @@ class ImageDataset:
         self.files_A = discover_files(rootA)
         self.files_B = discover_files(rootB)
 
-        self.index_A = TRAIN_PERCENTAGE*len(self.files_A)
-        self.index_B = TRAIN_PERCENTAGE*len(self.files_B)
+        self.index_A = self.TRAIN_PERCENTAGE*len(self.files_A)
+        self.index_B = self.TRAIN_PERCENTAGE*len(self.files_B)
 
         self.train_A = self.files_A[:self.index_A]
         self.train_B = self.files_B[:self.index_B]
