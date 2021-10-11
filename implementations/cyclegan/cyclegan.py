@@ -44,8 +44,8 @@ opt = parser.parse_args()
 print(opt)
 
 # Create sample and checkpoint directories
-os.makedirs("images", exist_ok=True)
-os.makedirs("saved_models", exist_ok=True)
+os.makedirs(os.environ['SM_OUTPUT_INTERMEDIATE_DIR'], exist_ok=True)
+os.makedirs("/saved_models", exist_ok=True)
 
 # Losses
 criterion_GAN = torch.nn.MSELoss()
@@ -73,10 +73,10 @@ if cuda:
 
 if opt.epoch != 0:
     # Load pretrained models
-    G_AB.load_state_dict(torch.load("saved_models/G_AB_%d.pth" % (opt.epoch)))
-    G_BA.load_state_dict(torch.load("saved_models/G_BA_%d.pth" % (opt.epoch)))
-    D_A.load_state_dict(torch.load("saved_models/D_A_%d.pth" % (opt.epoch)))
-    D_B.load_state_dict(torch.load("saved_models/D_B_%d.pth" % (opt.epoch)))
+    G_AB.load_state_dict(torch.load("/saved_models/G_AB_%d.pth" % (opt.epoch)))
+    G_BA.load_state_dict(torch.load("/saved_models/G_BA_%d.pth" % (opt.epoch)))
+    D_A.load_state_dict(torch.load("/saved_models/D_A_%d.pth" % (opt.epoch)))
+    D_B.load_state_dict(torch.load("/saved_models/D_B_%d.pth" % (opt.epoch)))
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
