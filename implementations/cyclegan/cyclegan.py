@@ -280,7 +280,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
     if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
         # Save model checkpoints
-        torch.save(G_AB.state_dict(), "saved_models/G_AB_%d.pth" % (epoch))
-        torch.save(G_BA.state_dict(), "saved_models/G_BA_%d.pth" % (epoch))
-        torch.save(D_A.state_dict(), "saved_models/D_A_%d.pth" % (epoch))
-        torch.save(D_B.state_dict(), "saved_models/D_B_%d.pth" % (epoch))
+        torch.save(G_AB.state_dict(), "/saved_models/G_AB_%d.pth" % (epoch))
+        torch.save(G_BA.state_dict(), "/saved_models/G_BA_%d.pth" % (epoch))
+        torch.save(D_A.state_dict(), "/saved_models/D_A_%d.pth" % (epoch))
+        torch.save(D_B.state_dict(), "/saved_models/D_B_%d.pth" % (epoch))
