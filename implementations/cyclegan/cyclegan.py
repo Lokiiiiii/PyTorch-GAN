@@ -43,9 +43,11 @@ parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss 
 opt = parser.parse_args()
 print(opt)
 
+image_save_dir = "/checkpoint/eval"
+model_save_dir = "/checkpoint/model"
 # Create sample and checkpoint directories
-os.makedirs(os.environ['SM_OUTPUT_DIR'], exist_ok=True)
-os.makedirs("/saved_models", exist_ok=True)
+os.makedirs(image_save_dir, exist_ok=True)
+os.makedirs(model_save_dir, exist_ok=True)
 
 # Losses
 criterion_GAN = torch.nn.MSELoss()
@@ -72,11 +74,11 @@ if cuda:
     criterion_identity.cuda()
 
 if opt.epoch != 0:
-    # Load pretrained models
-    G_AB.load_state_dict(torch.load("/saved_models/G_AB_%d.pth" % (opt.epoch)))
-    G_BA.load_state_dict(torch.load("/saved_models/G_BA_%d.pth" % (opt.epoch)))
-    D_A.load_state_dict(torch.load("/saved_models/D_A_%d.pth" % (opt.epoch)))
-    D_B.load_state_dict(torch.load("/saved_models/D_B_%d.pth" % (opt.epoch)))
+    # Load pretrained models    
+    G_AB.load_state_dict(torch.load(f"{model_save_dir}/G_AB_{opt.epoch}.pth"))
+    G_BA.load_state_dict(torch.load(f"{model_save_dir}/G_BA_{opt.epoch}.pth"))
+    D_A.load_state_dict(torch.load(f"{model_save_dir}/D_A_{opt.epoch}.pth"))
+    D_B.load_state_dict(torch.load(f"{model_save_dir}/D_B_{opt.epoch}.pth"))
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
@@ -150,7 +152,7 @@ def sample_images(batches_done):
     fake_B = make_grid(fake_B, nrow=5, normalize=True)
     # Arange images along y-axis
     image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
-    save_image(image_grid, f"{os.environ['SM_OUTPUT_DIR']}/{batches_done}.png", normalize=False)
+    save_image(image_grid, f"{image_save_dir}/{batches_done}.png", normalize=False)
 
 
 # ----------
@@ -280,7 +282,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
     if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
         # Save model checkpoints
-        torch.save(G_AB.state_dict(), "/saved_models/G_AB_%d.pth" % (epoch))
-        torch.save(G_BA.state_dict(), "/saved_models/G_BA_%d.pth" % (epoch))
-        torch.save(D_A.state_dict(), "/saved_models/D_A_%d.pth" % (epoch))
-        torch.save(D_B.state_dict(), "/saved_models/D_B_%d.pth" % (epoch))
+        torch.save(G_AB.state_dict(), f"{model_save_dir}/G_AB_{opt.epoch}.pth")
+        torch.save(G_BA.state_dict(), f"{model_save_dir}/G_BA_{opt.epoch}.pth")
+        torch.save(D_A.state_dict(), f"{model_save_dir}/D_A_{opt.epoch}.pth")
+        torch.save(D_B.state_dict(), f"{model_save_dir}/D_B_{opt.epoch}.pth")
