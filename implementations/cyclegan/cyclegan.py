@@ -21,6 +21,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from torch.cuda.amp import autocast, GradScaler
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
@@ -38,6 +41,7 @@ parser.add_argument("--channels", type=int, default=3, help="number of image cha
 parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator outputs")
 parser.add_argument("--checkpoint_interval", type=int, default=-1, help="interval between saving model checkpoints")
 parser.add_argument("--n_residual_blocks", type=int, default=9, help="number of residual blocks in generator")
+parser.add_argument("--enable_amp", type=int, default=0, help="Enable Automatic Mixed Precision")
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
 opt = parser.parse_args()
@@ -103,6 +107,9 @@ lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(
 lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(
     optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step
 )
+
+#Gradient Scaler
+scaler = GradScaler(enabled=opt.enable_amp)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
@@ -180,33 +187,35 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         optimizer_G.zero_grad()
 
-        # Identity loss
-        loss_id_A = criterion_identity(G_BA(real_A), real_A)
-        loss_id_B = criterion_identity(G_AB(real_B), real_B)
+        with autocast(enabled=opt.enable_amp):
 
-        loss_identity = (loss_id_A + loss_id_B) / 2
+            # Identity loss
+            loss_id_A = criterion_identity(G_BA(real_A), real_A)
+            loss_id_B = criterion_identity(G_AB(real_B), real_B)
 
-        # GAN loss
-        fake_B = G_AB(real_A)
-        loss_GAN_AB = criterion_GAN(D_B(fake_B), valid)
-        fake_A = G_BA(real_B)
-        loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
+            loss_identity = (loss_id_A + loss_id_B) / 2
 
-        loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
+            # GAN loss
+            fake_B = G_AB(real_A)
+            loss_GAN_AB = criterion_GAN(D_B(fake_B), valid)
+            fake_A = G_BA(real_B)
+            loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
 
-        # Cycle loss
-        recov_A = G_BA(fake_B)
-        loss_cycle_A = criterion_cycle(recov_A, real_A)
-        recov_B = G_AB(fake_A)
-        loss_cycle_B = criterion_cycle(recov_B, real_B)
+            loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
 
-        loss_cycle = (loss_cycle_A + loss_cycle_B) / 2
+            # Cycle loss
+            recov_A = G_BA(fake_B)
+            loss_cycle_A = criterion_cycle(recov_A, real_A)
+            recov_B = G_AB(fake_A)
+            loss_cycle_B = criterion_cycle(recov_B, real_B)
 
-        # Total loss
-        loss_G = loss_GAN + opt.lambda_cyc * loss_cycle + opt.lambda_id * loss_identity
+            loss_cycle = (loss_cycle_A + loss_cycle_B) / 2
 
-        loss_G.backward()
-        optimizer_G.step()
+            # Total loss
+            loss_G = loss_GAN + opt.lambda_cyc * loss_cycle + opt.lambda_id * loss_identity
+
+        scaler.scale(loss_G).backward()
+        scaler.step(optimizer_G)
 
         # -----------------------
         #  Train Discriminator A
@@ -222,8 +231,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # Total loss
         loss_D_A = (loss_real + loss_fake) / 2
 
-        loss_D_A.backward()
-        optimizer_D_A.step()
+        scaler.scale(loss_D_A).backward()
+        scaler.step(optimizer_D_A)
 
         # -----------------------
         #  Train Discriminator B
@@ -239,8 +248,10 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # Total loss
         loss_D_B = (loss_real + loss_fake) / 2
 
-        loss_D_B.backward()
-        optimizer_D_B.step()
+        scaler.scale(loss_D_B).backward()
+        scaler.step(optimizer_D_B)
+        
+        scaler.update()
 
         loss_D = (loss_D_A + loss_D_B) / 2
 
