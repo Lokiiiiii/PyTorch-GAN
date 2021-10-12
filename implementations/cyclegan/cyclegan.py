@@ -45,6 +45,7 @@ parser.add_argument("--enable_amp", type=int, default=0, help="Enable Automatic 
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
 opt = parser.parse_args()
+opt.enable_amp=bool(opt.enable_amp)
 print(opt)
 
 image_save_dir = "/checkpoint/eval"
