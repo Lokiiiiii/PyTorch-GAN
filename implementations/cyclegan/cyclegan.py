@@ -224,13 +224,14 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         optimizer_D_A.zero_grad()
 
-        # Real loss
-        loss_real = criterion_GAN(D_A(real_A), valid)
-        # Fake loss (on batch of previously generated samples)
-        fake_A_ = fake_A_buffer.push_and_pop(fake_A)
-        loss_fake = criterion_GAN(D_A(fake_A_.detach()), fake)
-        # Total loss
-        loss_D_A = (loss_real + loss_fake) / 2
+        with autocast(enabled=opt.enable_amp):
+            # Real loss
+            loss_real = criterion_GAN(D_A(real_A), valid)
+            # Fake loss (on batch of previously generated samples)
+            fake_A_ = fake_A_buffer.push_and_pop(fake_A)
+            loss_fake = criterion_GAN(D_A(fake_A_.detach()), fake)
+            # Total loss
+            loss_D_A = (loss_real + loss_fake) / 2
 
         scaler.scale(loss_D_A).backward()
         scaler.step(optimizer_D_A)
@@ -241,13 +242,14 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         optimizer_D_B.zero_grad()
 
-        # Real loss
-        loss_real = criterion_GAN(D_B(real_B), valid)
-        # Fake loss (on batch of previously generated samples)
-        fake_B_ = fake_B_buffer.push_and_pop(fake_B)
-        loss_fake = criterion_GAN(D_B(fake_B_.detach()), fake)
-        # Total loss
-        loss_D_B = (loss_real + loss_fake) / 2
+        with autocast(enabled=opt.enable_amp):
+            # Real loss
+            loss_real = criterion_GAN(D_B(real_B), valid)
+            # Fake loss (on batch of previously generated samples)
+            fake_B_ = fake_B_buffer.push_and_pop(fake_B)
+            loss_fake = criterion_GAN(D_B(fake_B_.detach()), fake)
+            # Total loss
+            loss_D_B = (loss_real + loss_fake) / 2
 
         scaler.scale(loss_D_B).backward()
         scaler.step(optimizer_D_B)
