@@ -53,7 +53,7 @@ opt.enable_amp=bool(opt.enable_amp)
 opt.world_size = dist.get_world_size()
 opt.rank = rank = dist.get_rank()
 opt.local_rank = local_rank = dist.get_local_rank()
-opt.batch_size //= opt.world_size // os.environ['SM_NUM_GPUS']
+opt.batch_size //= opt.world_size // int(os.environ['SM_NUM_GPUS'])
 opt.batch_size = max(opt.batch_size, 1)
 is_first_local_rank = local_rank == 0
 is_first_rank = rank == 0
