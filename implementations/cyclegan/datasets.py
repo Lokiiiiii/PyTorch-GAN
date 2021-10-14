@@ -18,8 +18,7 @@ def discover_files(paths):
     for p in paths:
         files += glob.glob(p + "/*/*.jpg")
         files += glob.glob(p + "/*/*/*.jpg")
-    files = list(set(files))
-    random.shuffle(files)
+    files = sorted(list(set(files)))
     return files
 
 
@@ -34,14 +33,7 @@ class ImageDataset:
         self.files_A = discover_files(rootA)
         self.files_B = discover_files(rootB)
 
-        self.index_A = int(self.TRAIN_PERCENTAGE*len(self.files_A))
-        self.index_B = int(self.TRAIN_PERCENTAGE*len(self.files_B))
-
-        self.train_A = self.files_A[:self.index_A]
-        self.train_B = self.files_B[:self.index_B]
-
-        self.test_A = self.files_A[self.index_A:]
-        self.test_B = self.files_B[self.index_B:]
+        self.split()
 
 
     def train(self):
@@ -50,6 +42,23 @@ class ImageDataset:
 
     def test(self):
         return ImageDatasetSlice(self.test_A, self.test_B, self.transform, self.unaligned)
+
+
+    def _split(self, files):
+        train, test = [], []
+        num = len(files)
+        divisor = int(1/self.TEST_PERCENTAGE)
+        for i in range(num):
+            if i%divisor==0:
+                test.append(files[i])
+            else:
+                train.append(files[i])
+        return train, test
+
+
+    def split(self):
+        self.train_A, self.test_A = self._split(self.files_A)
+        self.train_B, self.test_B = self._split(self.files_B)
 
 
 class ImageDatasetSlice(Dataset):

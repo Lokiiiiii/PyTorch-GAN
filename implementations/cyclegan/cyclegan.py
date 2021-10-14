@@ -23,6 +23,10 @@ import torch
 
 from torch.cuda.amp import autocast, GradScaler
 
+import smdistributed.dataparallel.torch.distributed as dist
+from smdistributed.dataparallel.torch.parallel.distributed import DistributedDataParallel as DDP
+dist.init_process_group()
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
@@ -46,7 +50,17 @@ parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss w
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
 opt = parser.parse_args()
 opt.enable_amp=bool(opt.enable_amp)
-print(opt)
+opt.world_size = dist.get_world_size()
+opt.rank = rank = dist.get_rank()
+opt.local_rank = local_rank = dist.get_local_rank()
+opt.batch_size //= opt.world_size // 8
+opt.batch_size = max(opt.batch_size, 1)
+is_first_local_rank = local_rank == 0
+is_first_rank = rank == 0
+
+if is_first_rank:
+    print(opt)
+
 
 image_save_dir = "/checkpoint/eval"
 model_save_dir = "/checkpoint/model"
@@ -64,10 +78,10 @@ cuda = torch.cuda.is_available()
 input_shape = (opt.channels, opt.img_height, opt.img_width)
 
 # Initialize generator and discriminator
-G_AB = GeneratorResNet(input_shape, opt.n_residual_blocks)
-G_BA = GeneratorResNet(input_shape, opt.n_residual_blocks)
-D_A = Discriminator(input_shape)
-D_B = Discriminator(input_shape)
+G_AB = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks))
+G_BA = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks))
+D_A = DDP(Discriminator(input_shape))
+D_B = DDP(Discriminator(input_shape))
 
 if cuda:
     G_AB = G_AB.cuda()
@@ -127,21 +141,32 @@ transforms_ = [
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 ]
 
+# Initialize DataSet
 dataset = ImageDataset(opt.datasetA, opt.datasetB, transforms_=transforms_, unaligned=True)
+
 # Training data loader
+train_sampler = torch.utils.data.distributed.DistributedSampler(
+                                                        train_dataset,
+                                                        num_replicas=opt.world_size,
+                                                        rank=rank
+                                                        )
 dataloader = DataLoader(
     dataset.train(),
     batch_size=opt.batch_size,
-    shuffle=True,
-    num_workers=opt.n_cpu,
+    shuffle=False,
+    num_workers=0,
+    pin_memory=True,
+    sampler=train_sampler,
 )
+
+if is_first_rank:
 # Test data loader
-val_dataloader = DataLoader(
-    dataset.test(),
-    batch_size=5,
-    shuffle=True,
-    num_workers=1,
-)
+    val_dataloader = DataLoader(
+        dataset.test(),
+        batch_size=5,
+        shuffle=True,
+        num_workers=1,
+    )
 
 
 def sample_images(batches_done):
@@ -269,24 +294,25 @@ for epoch in range(opt.epoch, opt.n_epochs):
         prev_time = time.time()
 
         # Print log
-        sys.stdout.write(
-            "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
-            % (
-                epoch,
-                opt.n_epochs,
-                i,
-                len(dataloader),
-                loss_D.item(),
-                loss_G.item(),
-                loss_GAN.item(),
-                loss_cycle.item(),
-                loss_identity.item(),
-                time_left,
+        if is_first_rank:
+            sys.stdout.write(
+                "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
+                % (
+                    epoch,
+                    opt.n_epochs,
+                    i,
+                    len(dataloader),
+                    loss_D.item(),
+                    loss_G.item(),
+                    loss_GAN.item(),
+                    loss_cycle.item(),
+                    loss_identity.item(),
+                    time_left,
+                )
             )
-        )
 
         # If at sample interval save image
-        if batches_done % opt.sample_interval == 0:
+        if batches_done % opt.sample_interval == 0 and is_first_rank:
             sample_images(batches_done)
 
     # Update learning rates
@@ -294,7 +320,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
     lr_scheduler_D_A.step()
     lr_scheduler_D_B.step()
 
-    if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
+    if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0 and is_first_rank:
         # Save model checkpoints
         torch.save(G_AB.state_dict(), f"{model_save_dir}/G_AB_{epoch:04d}.pth")
         torch.save(G_BA.state_dict(), f"{model_save_dir}/G_BA_{epoch:04d}.pth")
