@@ -148,7 +148,7 @@ transforms_ = [
 
 # Initialize DataSet
 dataset = ImageDataset(opt.datasetA, opt.datasetB, transforms_=transforms_, unaligned=True)
-
+train_dataset = dataset.train()
 # Training data loader
 train_sampler = torch.utils.data.distributed.DistributedSampler(
                                                         train_dataset,
@@ -156,7 +156,7 @@ train_sampler = torch.utils.data.distributed.DistributedSampler(
                                                         rank=rank
                                                         )
 dataloader = DataLoader(
-    dataset.train(),
+    train_dataset,
     batch_size=opt.batch_size,
     shuffle=False,
     num_workers=0,
