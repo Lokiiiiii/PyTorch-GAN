@@ -2,6 +2,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from torch.cuda.amp import autocast
+
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
