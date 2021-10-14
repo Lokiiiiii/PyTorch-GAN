@@ -61,6 +61,7 @@ is_first_rank = rank == 0
 if is_first_rank:
     print(opt)
 
+torch.cuda.set_device(local_rank)
 
 image_save_dir = "/checkpoint/eval"
 model_save_dir = "/checkpoint/model"
@@ -78,19 +79,23 @@ cuda = torch.cuda.is_available()
 input_shape = (opt.channels, opt.img_height, opt.img_width)
 
 # Initialize generator and discriminator
-G_AB = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp))
-G_BA = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp))
-D_A = DDP(Discriminator(input_shape, opt.enable_amp))
-D_B = DDP(Discriminator(input_shape, opt.enable_amp))
+G_AB = GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp)
+G_BA = GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp)
+D_A = Discriminator(input_shape, opt.enable_amp)
+D_B = Discriminator(input_shape, opt.enable_amp)
 
 if cuda:
-    G_AB = G_AB.cuda()
-    G_BA = G_BA.cuda()
-    D_A = D_A.cuda()
-    D_B = D_B.cuda()
-    criterion_GAN.cuda()
-    criterion_cycle.cuda()
-    criterion_identity.cuda()
+    G_AB = DDP(G_AB.cuda())
+    G_BA = DDP(G_BA.cuda())
+    D_A = DDP(D_A.cuda())
+    D_B = DDP(D_B.cuda())
+    G_AB.cuda(local_rank)
+    G_BA.cuda(local_rank)
+    D_A.cuda(local_rank)
+    D_B.cuda(local_rank)
+    criterion_GAN.cuda(local_rank)
+    criterion_cycle.cuda(local_rank)
+    criterion_identity.cuda(local_rank)
 
 if opt.epoch != 0:
     # Load pretrained models    
