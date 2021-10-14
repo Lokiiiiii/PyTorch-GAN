@@ -78,10 +78,10 @@ cuda = torch.cuda.is_available()
 input_shape = (opt.channels, opt.img_height, opt.img_width)
 
 # Initialize generator and discriminator
-G_AB = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks))
-G_BA = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks))
-D_A = DDP(Discriminator(input_shape))
-D_B = DDP(Discriminator(input_shape))
+G_AB = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp))
+G_BA = DDP(GeneratorResNet(input_shape, opt.n_residual_blocks, opt.enable_amp))
+D_A = DDP(Discriminator(input_shape, opt.enable_amp))
+D_B = DDP(Discriminator(input_shape, opt.enable_amp))
 
 if cuda:
     G_AB = G_AB.cuda()

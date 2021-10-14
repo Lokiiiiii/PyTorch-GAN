@@ -38,9 +38,10 @@ class ResidualBlock(nn.Module):
 
 
 class GeneratorResNet(nn.Module):
-    def __init__(self, input_shape, num_residual_blocks):
+    def __init__(self, input_shape, num_residual_blocks, enable_amp=False):
         super(GeneratorResNet, self).__init__()
 
+        self.enable_amp = enable_amp
         channels = input_shape[0]
 
         # Initial convolution block
@@ -84,7 +85,8 @@ class GeneratorResNet(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
-        return self.model(x)
+        with autocast(enabled=self.enable_amp):
+            return self.model(x)
 
 
 ##############################
@@ -93,9 +95,10 @@ class GeneratorResNet(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_shape):
+    def __init__(self, input_shape, enable_amp=False):
         super(Discriminator, self).__init__()
 
+        self.enable_amp = enable_amp
         channels, height, width = input_shape
 
         # Calculate output shape of image discriminator (PatchGAN)
@@ -119,4 +122,5 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, img):
-        return self.model(img)
+        with autocast(enabled=self.enable_amp):
+            return self.model(img)
